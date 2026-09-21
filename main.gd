@@ -122,6 +122,13 @@ func _process(delta: float) -> void:
 						}
 						write_stuff_to_file(stuff_to_write_to_save_file, save_file)
 				elevator_pitch_has_been_saved = true
+		3:
+			pass
+		4:
+			if this_is_valid(camera_node):
+				if not transition_is_occurring(camera_node, "global_position"):
+					if this_is_valid(_3d_scene_1_node):
+						_3d_scene_1_node.hide()
 	
 	
 	
@@ -136,13 +143,6 @@ func _process(delta: float) -> void:
 	var occurring_transitions_that_are_still_transitioning: Array[Dictionary] = []
 	# Go through each transition in occurring_transitions:
 	for transition in occurring_transitions:
-		print_debug("Transition value: " + str(transition["Transitioning value"]))
-		print_debug("Staert value: " + str(transition["Start value"]))
-		print_debug("End value: " + str(transition["End value"]))
-		print_debug("Transition amount: " + str(transition["Transition amount"]))
-		print_debug("Transition speed: " + str(transition["Transition speed"]))
-		print_debug("-------------------------------------------------------------------------------------------")
-		
 		transition["Transition amount"] += transition["Transition speed"] * time_since_previous_frame
 		transition["Transition amount"] = clamp(transition["Transition amount"], 0.0, 1.0)
 		transition["Object with transitioning value"].set(transition["Transitioning value"], lerp(transition["Start value"], transition["End value"], transition["Transition amount"]))
@@ -209,8 +209,11 @@ func _when_take_multiple_copies_button_is_pressed() -> void:
 	stage = 3
 
 func _when_enter_the_oc_button_is_pressed() -> void:
+	if this_is_valid(_2d_ui_3_node):
+		_2d_ui_3_node.hide()
 	if this_is_valid(camera_node):
 		start_transition(camera_node, "global_position", Vector3(83.51, 2.75, 11.66), Vector3(52.51, 2.75, 5.669), 2.0)
+	stage = 4
 
 
 
@@ -243,11 +246,13 @@ func stop_transition(transition_number_input) -> void:
 	if transition_number_input <= last_index_of(occurring_transitions) and transition_number_input >= 0:
 		occurring_transitions.remove_at(transition_number_input)
 
-func get_transition(transition_number_input):
-	if transition_number_input <= last_index_of(occurring_transitions) and transition_number_input >= 0:
-		return occurring_transitions[transition_number_input]
-	else:
-		return {}
+func transition_is_occurring(object_with_transitioning_value, value_to_transition) -> bool:
+	# Go through each transition in occurring_transitions:
+	for transition in occurring_transitions:
+		if transition["Object with transitioning value"] == object_with_transitioning_value and transition["Transitioning value"] == value_to_transition:
+			return true
+	# If you went through every occurring transition and you never returned true...
+	return false 
 
 func write_stuff_to_file(stuff_input, file_input) -> void:
 	if this_is_valid(stuff_input) and this_is_valid(file_input):
