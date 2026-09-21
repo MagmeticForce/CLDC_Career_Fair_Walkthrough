@@ -145,7 +145,7 @@ func _process(delta: float) -> void:
 		
 		transition["Transition amount"] += transition["Transition speed"] * time_since_previous_frame
 		transition["Transition amount"] = clamp(transition["Transition amount"], 0.0, 1.0)
-		transition["Transitioning value"] = lerp(transition["Start value"], transition["End value"], transition["Transition amount"])
+		transition["Object with transitioning value"].set(transition["Transitioning value"], lerp(transition["Start value"], transition["End value"], transition["Transition amount"]))
 		if transition["Transition amount"] < 1.0:
 			occurring_transitions_that_are_still_transitioning.append(transition)
 	occurring_transitions = occurring_transitions_that_are_still_transitioning
@@ -210,7 +210,7 @@ func _when_take_multiple_copies_button_is_pressed() -> void:
 
 func _when_enter_the_oc_button_is_pressed() -> void:
 	if this_is_valid(camera_node):
-		camera_position_transition_number = start_transition_and_get_its_transition_number(camera_node.global_position, Vector3(83.51, 2.75, 11.66), Vector3(52.51, 2.75, 5.669), 2.0)
+		start_transition(camera_node, "global_position", Vector3(83.51, 2.75, 11.66), Vector3(52.51, 2.75, 5.669), 2.0)
 
 
 
@@ -224,17 +224,20 @@ func _when_enter_the_oc_button_is_pressed() -> void:
 # ################################################################# #
 # ################################################################# #
 
-func start_transition_and_get_its_transition_number(value_to_transition_input, start_value_input, end_value_input, speed_input) -> int:
-	var transition_info: Dictionary = {
-		"Transitioning value": value_to_transition_input,
-		"Start value": start_value_input,
-		"End value": end_value_input,
-		"Transition amount": 0.0,
-		"Transition speed": speed_input
-	}
-	occurring_transitions.append(transition_info)
-	return last_index_of(occurring_transitions)
-	# Handle the transition: see section 3.b.
+func start_transition(object_with_transitioning_value, value_to_transition, start_value_input, end_value_input, speed_input) -> void:
+	if value_to_transition in object_with_transitioning_value:
+		var transition_info: Dictionary = {
+			"Transitioning value": value_to_transition,
+			"Object with transitioning value": object_with_transitioning_value,
+			"Start value": start_value_input,
+			"End value": end_value_input,
+			"Transition amount": 0.0,
+			"Transition speed": speed_input
+		}
+		occurring_transitions.append(transition_info)
+		# Handle the transition: see section 3.b.
+	else:
+		print_debug("ERROR: start_transition(): " + str(object_with_transitioning_value) + " does not have attribute " + value_to_transition)
 
 func stop_transition(transition_number_input) -> void:
 	if transition_number_input <= last_index_of(occurring_transitions) and transition_number_input >= 0:
