@@ -25,7 +25,7 @@ class_name Main
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
-# 1. CREATING PARAMETERS 											                      #
+# 1. CREATING PARAMETERS 											#
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
@@ -40,6 +40,8 @@ class_name Main
 @onready var _3d_scene_1_node: Node3D = $_3D_Scenes/_3D_Scene_1
 @onready var camera_node: Camera3D = $_3D_Scenes/For_All_Scenes/Camera
 
+var camera_position_transition_number: int = -1 # for now
+
 var elevator_pitch_has_been_saved: bool = false
 
 var stage: int = 1
@@ -48,7 +50,7 @@ var stage: int = 1
 
 var active_transitions: Array[Dictionary] = []
 
-var transitioning_values: Array = []
+var occurring_transitions: Array = []
 var transition_start_values: Array = []
 var transition_end_values: Array = []
 var transition_amounts: Array = []
@@ -61,7 +63,7 @@ var transition_amounts: Array = []
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
-# 2. RIGHT WHEN THINGS LOAD 										                    #
+# 2. RIGHT WHEN THINGS LOAD 										#
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
@@ -87,7 +89,7 @@ func _ready() -> void:
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
-# 3. EVERY FRAME OF THE GAME										                    #
+# 3. EVERY FRAME OF THE GAME										#
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
@@ -101,14 +103,12 @@ func _process(delta: float) -> void:
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
-# 3.a. EVERY FRAME OF THE GAME: HANDLING THE CURRENT STAGE OF THE	  #
-#	   WALKTHROUGH													                          #
+# 3.a. EVERY FRAME OF THE GAME: HANDLING THE CURRENT STAGE OF THE	#
+#	   WALKTHROUGH													#
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
 
-	if this_is_valid(switch_to_windowed_button_node):
-		print("Button pressed: " + str(switch_to_windowed_button_node.button_pressed))
 	match stage:
 		1:
 			pass
@@ -128,20 +128,27 @@ func _process(delta: float) -> void:
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
-# 3.b. EVERY FRAME OF THE GAME: HANDLING TRANSITIONS				        #
+# 3.b. EVERY FRAME OF THE GAME: HANDLING TRANSITIONS				#
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
 
-	var transitioning_values_that_are_still_transitioning: Array[Dictionary] = []
-	# Go through each transition in transitioning_values:
-	for transition in transitioning_values:
-		transition["Transition amount"] += transition["Transition amount"] * time_since_previous_frame
+	var occurring_transitions_that_are_still_transitioning: Array[Dictionary] = []
+	# Go through each transition in occurring_transitions:
+	for transition in occurring_transitions:
+		print_debug("Transition value: " + str(transition["Transitioning value"]))
+		print_debug("Staert value: " + str(transition["Start value"]))
+		print_debug("End value: " + str(transition["End value"]))
+		print_debug("Transition amount: " + str(transition["Transition amount"]))
+		print_debug("Transition speed: " + str(transition["Transition speed"]))
+		print_debug("-------------------------------------------------------------------------------------------")
+		
+		transition["Transition amount"] += transition["Transition speed"] * time_since_previous_frame
 		transition["Transition amount"] = clamp(transition["Transition amount"], 0.0, 1.0)
 		transition["Transitioning value"] = lerp(transition["Start value"], transition["End value"], transition["Transition amount"])
 		if transition["Transition amount"] < 1.0:
-			transitioning_values_that_are_still_transitioning.append(transition)
-	transitioning_values = transitioning_values_that_are_still_transitioning
+			occurring_transitions_that_are_still_transitioning.append(transition)
+	occurring_transitions = occurring_transitions_that_are_still_transitioning
 	# (This removes any values that are done transitioning.)
 	
 	
@@ -152,7 +159,7 @@ func _process(delta: float) -> void:
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
-# 4. EVENTS; 														                            #
+# 4. EVENTS 														#
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
@@ -162,7 +169,7 @@ func _process(delta: float) -> void:
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
-# 4.a. EVENTS: BUTTON PRESSES 										                  #
+# 4.a. EVENTS: BUTTON PRESSES 										#
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
@@ -203,7 +210,7 @@ func _when_take_multiple_copies_button_is_pressed() -> void:
 
 func _when_enter_the_oc_button_is_pressed() -> void:
 	if this_is_valid(camera_node):
-		pass #start_transition(camera.position, Vector3(), Vector3())
+		camera_position_transition_number = start_transition_and_get_its_transition_number(camera_node.global_position, Vector3(83.51, 2.75, 11.66), Vector3(52.51, 2.75, 5.669), 2.0)
 
 
 
@@ -212,12 +219,12 @@ func _when_enter_the_oc_button_is_pressed() -> void:
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
-# Second-To-Last. FUNCTION DEFINITIONS 								              #
+# Second-To-Last. FUNCTION DEFINITIONS 								#
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
 
-func start_transition(value_to_transition_input, start_value_input, end_value_input, speed_input):
+func start_transition_and_get_its_transition_number(value_to_transition_input, start_value_input, end_value_input, speed_input) -> int:
 	var transition_info: Dictionary = {
 		"Transitioning value": value_to_transition_input,
 		"Start value": start_value_input,
@@ -225,10 +232,21 @@ func start_transition(value_to_transition_input, start_value_input, end_value_in
 		"Transition amount": 0.0,
 		"Transition speed": speed_input
 	}
-	transitioning_values.append(transition_info)
+	occurring_transitions.append(transition_info)
+	return last_index_of(occurring_transitions)
 	# Handle the transition: see section 3.b.
-	
-func write_stuff_to_file(stuff_input, file_input):
+
+func stop_transition(transition_number_input) -> void:
+	if transition_number_input <= last_index_of(occurring_transitions) and transition_number_input >= 0:
+		occurring_transitions.remove_at(transition_number_input)
+
+func get_transition(transition_number_input):
+	if transition_number_input <= last_index_of(occurring_transitions) and transition_number_input >= 0:
+		return occurring_transitions[transition_number_input]
+	else:
+		return {}
+
+func write_stuff_to_file(stuff_input, file_input) -> void:
 	if this_is_valid(stuff_input) and this_is_valid(file_input):
 		var new_line_of_save_file = JSON.stringify(stuff_input)
 		file_input.store_line(new_line_of_save_file)
@@ -241,8 +259,8 @@ func write_stuff_to_file(stuff_input, file_input):
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
-# Final. RENAMING BLOCKS OF CODE THAT DON'T READ WELL USING 		    #
-#		 FUNCTIONS 													                            #
+# Final. RENAMING BLOCKS OF CODE THAT DON'T READ WELL USING 		#
+#		 FUNCTIONS 													#
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
@@ -250,6 +268,12 @@ func write_stuff_to_file(stuff_input, file_input):
 # (I proabbly could have shortened the name to something like
 # "RENAMING CODE" but idk, I just like to be very specific and
 # upfront on what exactly each section is about.)
+
+func last_index_of(array_input: Array) -> int:
+	return array_input.size() - 1
+	# We do this because if an array's
+	# size is 3 for example, then its 
+	# indices are 0 1 2, and 2 is 3 - 1. 
 
 func this_is_valid(object_input):
 	# Essentially, if you write "if my_object", then the
