@@ -219,6 +219,7 @@ func _when_enter_the_oc_button_is_pressed() -> void:
 
 
 
+
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
@@ -242,9 +243,14 @@ func start_transition(object_with_transitioning_value, value_to_transition, star
 	else:
 		print_debug("ERROR: start_transition(): " + str(object_with_transitioning_value) + " does not have attribute " + value_to_transition)
 
-func stop_transition(transition_number_input) -> void:
-	if transition_number_input <= last_index_of(occurring_transitions) and transition_number_input >= 0:
-		occurring_transitions.remove_at(transition_number_input)
+func stop_transition(object_with_transitioning_value, value_to_transition) -> void:
+	# Go through each transition in occurring_transitions:
+	var transition_to_remove = null # for now
+	for transition in occurring_transitions:
+		if transition["Object with transitioning value"] == object_with_transitioning_value and transition["Transitioning value"] == value_to_transition:
+			transition_to_remove = transition
+	if transition_to_remove != null:
+		occurring_transitions.erase(transition_to_remove)
 
 func transition_is_occurring(object_with_transitioning_value, value_to_transition) -> bool:
 	# Go through each transition in occurring_transitions:
