@@ -17,6 +17,9 @@ class_name Main
 #		 Functions
 # ######################## # 
 
+# NOTE-to-reader: hover over a function or variable
+# to learn more about what it does.
+
 
 
 
@@ -37,7 +40,9 @@ class_name Main
 @onready var switched_to_windowed_cooldown_timer_node: Timer = $_2D_UI_Elements/_2D_UI_1/Switch_To_Windowed_Cooldown_Timer
 @onready var _2d_ui_2_node: Control = $_2D_UI_Elements/_2D_UI_2
 @onready var _2d_ui_3_node: Control = $_2D_UI_Elements/_2D_UI_3
+@onready var _2d_ui_4_node: Control = $_2D_UI_Elements/_2D_UI_4
 @onready var _3d_scene_1_node: Node3D = $_3D_Scenes/_3D_Scene_1
+@onready var _3d_scene_2_node: Node3D = $_3D_Scenes/_3D_Scene_2
 @onready var camera_node: Camera3D = $_3D_Scenes/For_All_Scenes/Camera
 
 var camera_position_transition_number: int = -1 # for now
@@ -76,6 +81,11 @@ func _ready() -> void:
 		_2d_ui_2_node.hide()
 	if this_is_valid(_2d_ui_3_node):
 		_2d_ui_3_node.hide()
+	if this_is_valid(_2d_ui_4_node):
+		_2d_ui_4_node.hide()
+	
+	if this_is_valid(_3d_scene_1_node):
+		_3d_scene_2_node.hide()
 	
 	var game_window = get_window()
 	if this_is_valid(game_window):
@@ -129,6 +139,10 @@ func _process(delta: float) -> void:
 				if not transition_is_occurring(camera_node, "global_position"):
 					if this_is_valid(_3d_scene_1_node):
 						_3d_scene_1_node.hide()
+					if this_is_valid(_3d_scene_2_node):
+						_3d_scene_2_node.show()
+					if this_is_valid(_2d_ui_4_node):
+						_2d_ui_4_node.show()
 	
 	
 	
@@ -143,11 +157,17 @@ func _process(delta: float) -> void:
 	var occurring_transitions_that_are_still_transitioning: Array[Dictionary] = []
 	# Go through each transition in occurring_transitions:
 	for transition in occurring_transitions:
-		transition["Transition amount"] += transition["Transition speed"] * time_since_previous_frame
-		transition["Transition amount"] = clamp(transition["Transition amount"], 0.0, 1.0)
-		transition["Object with transitioning value"].set(transition["Transitioning value"], lerp(transition["Start value"], transition["End value"], transition["Transition amount"]))
+		if transition["Delay timer"] < transition["Delay"]:
+			transition["Delay timer"] += time_since_previous_frame
+		else:
+			# We can begin transitioning
+			transition["Transition amount"] += transition["Transition speed"] * time_since_previous_frame
+			transition["Transition amount"] = clamp(transition["Transition amount"], 0.0, 1.0)
+			transition["Object with transitioning value"].set(transition["Transitioning value"], lerp(transition["Start value"], transition["End value"], transition["Transition amount"]))
+		
 		if transition["Transition amount"] < 1.0:
 			occurring_transitions_that_are_still_transitioning.append(transition)
+			
 	occurring_transitions = occurring_transitions_that_are_still_transitioning
 	# (This removes any values that are done transitioning.)
 	
@@ -173,6 +193,9 @@ func _process(delta: float) -> void:
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
+
+	# These functions are orgaized in the order in which their corresponding
+	# buttons appear in the simulator.
 
 func _when_2d_ui_1_done_button_is_pressed() -> void:
 	if this_is_valid(_2d_ui_1_node):
@@ -214,6 +237,11 @@ func _when_enter_the_oc_button_is_pressed() -> void:
 	if this_is_valid(camera_node):
 		start_transition(camera_node, "global_position", Vector3(83.51, 2.75, 11.66), Vector3(52.51, 2.75, 5.669), 2.0)
 	stage = 4
+	
+func _when_walk_through_the_line_button_is_pressed() -> void:
+	stage = 5
+	start_transition(camera_node, "global_rotation", Vector3(0.0, 90.0, 0.0), Vector3(0.0, 180.0, 0.0), 2.0)
+	start_transition(camera_node, "global_position", Vector3(52.51, 2.75, 5.669), Vector3(52.51, 2.75, 7.669), 2.0, 2.0)
 
 
 
@@ -228,7 +256,7 @@ func _when_enter_the_oc_button_is_pressed() -> void:
 # ################################################################# #
 # ################################################################# #
 
-func start_transition(object_with_transitioning_value, value_to_transition, start_value_input, end_value_input, speed_input) -> void:
+func start_transition(object_with_transitioning_value, value_to_transition, start_value_input, end_value_input, speed_input, delay_input = 0.0) -> void:
 	if value_to_transition in object_with_transitioning_value:
 		var transition_info: Dictionary = {
 			"Transitioning value": value_to_transition,
@@ -236,7 +264,9 @@ func start_transition(object_with_transitioning_value, value_to_transition, star
 			"Start value": start_value_input,
 			"End value": end_value_input,
 			"Transition amount": 0.0,
-			"Transition speed": speed_input
+			"Transition speed": speed_input,
+			"Delay": delay_input,
+			"Delay timer": 0.0
 		}
 		occurring_transitions.append(transition_info)
 		# Handle the transition: see section 3.b.
