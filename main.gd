@@ -43,6 +43,9 @@ class_name Main
 @onready var _2d_ui_4_node: Control = $_2D_UI_Elements/_2D_UI_4
 @onready var _3d_scene_1_node: Node3D = $_3D_Scenes/_3D_Scene_1
 @onready var _3d_scene_2_node: Node3D = $_3D_Scenes/_3D_Scene_2
+@onready var id_card_node: MeshInstance3D = $_3D_Scenes/_3D_Scene_2/ID_Card
+@onready var paper_node: MeshInstance3D = $_3D_Scenes/_3D_Scene_2/Paper
+@onready var pen_node: MeshInstance3D = $_3D_Scenes/_3D_Scene_2/Pen
 @onready var camera_node: Camera3D = $_3D_Scenes/For_All_Scenes/Camera
 
 var camera_position_transition_number: int = -1 # for now
@@ -85,7 +88,16 @@ func _ready() -> void:
 		_2d_ui_4_node.hide()
 	
 	if this_is_valid(_3d_scene_1_node):
+		_3d_scene_1_node.show()
+	if this_is_valid(_3d_scene_2_node):
 		_3d_scene_2_node.hide()
+	if this_is_valid(paper_node):
+		paper_node.hide()
+	if this_is_valid(pen_node):
+		pen_node.hide()
+	if this_is_valid(id_card_node):
+		id_card_node.hide()
+		
 	
 	var game_window = get_window()
 	if this_is_valid(game_window):
@@ -240,8 +252,25 @@ func _when_enter_the_oc_button_is_pressed() -> void:
 	
 func _when_walk_through_the_line_button_is_pressed() -> void:
 	stage = 5
-	start_transition(camera_node, "global_rotation", Vector3(0.0, 90.0, 0.0), Vector3(0.0, 180.0, 0.0), 2.0)
-	start_transition(camera_node, "global_position", Vector3(52.51, 2.75, 5.669), Vector3(52.51, 2.75, 7.669), 2.0, 2.0)
+	
+	if this_is_valid(_2d_ui_4_node):
+		_2d_ui_4_node.hide()
+	
+	start_transition(camera_node, "global_rotation", Vector3(0.0, PI/2, 0.0), Vector3(0.0, PI, 0.0), 2.0)
+	start_transition(camera_node, "global_position", Vector3(52.51, 2.75, 5.669), Vector3(52.51, 2.75, 22.66), 2.0, 0.5)
+	
+	start_transition(camera_node, "global_rotation", Vector3(0.0, PI, 0.0), Vector3(0.0, PI/2, 0.0), 2.0, 1.0)
+	start_transition(camera_node, "global_position", Vector3(52.51, 2.75, 22.66), Vector3(45.14, 2.75, 22.66), 2.0, 1.5)
+	
+	start_transition(camera_node, "global_rotation", Vector3(0.0, PI/2, 0.0), Vector3(0.0, 0.0, 0.0), 2.0, 2.0)
+	start_transition(camera_node, "global_position", Vector3(45.14, 2.75, 22.66), Vector3(45.14, 2.75, 17.66), 2.0, 2.5)
+	
+	start_transition(camera_node, "global_rotation", Vector3(0.0, 0.0, 0.0), Vector3(0.0, PI/2, 0.0), 2.0, 3.0)
+	start_transition(camera_node, "global_position", Vector3(45.14, 2.75, 17.66), Vector3(38.647, 2.75, 17.769), 2.0, 3.5)
+	
+	# Multi-choice option
+	# Present GrizzID if you're a current student. If you're an alumni,
+	# write your name on the paper. 
 
 
 
@@ -319,6 +348,15 @@ func last_index_of(array_input: Array) -> int:
 	# size is 3 for example, then its 
 	# indices are 0 1 2, and 2 is 3 - 1. 
 
+
+# this_is_valid() description:
+## If you tell the game something like my_node = $"(insert node 
+## that doesn't exist)", then it will be invalid. Even though 
+## you'll never intentionally write that, you might rename a 
+## node and then forget to update the script, or you might try
+## accessing a node that has been removed, or make a similar 
+## mistake. So before we do anything with a node, we first need to 
+## see if it's valid!
 func this_is_valid(object_input):
 	# Essentially, if you write "if my_object", then the
 	# "if" condition is true if my_object is valid.
@@ -326,10 +364,3 @@ func this_is_valid(object_input):
 		return true
 	else:
 		return false
-	# This function is used quite often, because if you
-	# tell the game something like my_node = $"(insert node 
-	# that doesn't exist)", then it will be invalid. Even
-	# though you'll never intentionally write that, you might
-	# rename a node and then forget to update the script. So
-	# before we do anything with a node, we first need
-	# to see if it's valid!
