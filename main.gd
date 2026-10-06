@@ -52,6 +52,12 @@ class_name Main
 @onready var _2d_ui_7_node: Control = $_2D_UI_Elements/_2D_UI_7
 @onready var _2d_ui_8_node: Control = $_2D_UI_Elements/_2D_UI_8
 @onready var _2d_ui_9_node: Control = $_2D_UI_Elements/_2D_UI_9
+@onready var _2d_ui_10_node: Control = $_2D_UI_Elements/_2D_UI_10
+@onready var input_field_for_retyping_elevator_pitch_node: TextEdit = $_2D_UI_Elements/_2D_UI_10/Elevator_Pitch_Input_Field
+@onready var _2d_ui_11_node: Control = $_2D_UI_Elements/_2D_UI_11
+@onready var original_elevator_pitch_node: RichTextLabel = $_2D_UI_Elements/_2D_UI_11/Original_Elevator_Pitch
+@onready var retyped_elevator_pitch_node: RichTextLabel = $_2D_UI_Elements/_2D_UI_11/Retyped_Elevator_Pitch
+@onready var percent_accuracy_label_node: RichTextLabel = $_2D_UI_Elements/_2D_UI_11/Percent_Accuracy
 @onready var _3d_scene_1_node: Node3D = $_3D_Scenes/_3D_Scene_1
 @onready var _3d_scene_2_node: Node3D = $_3D_Scenes/_3D_Scene_2
 @onready var _3d_scene_3_node: Node3D = $_3D_Scenes/_3D_Scene_3
@@ -63,11 +69,12 @@ class_name Main
 @onready var pen_001_node: MeshInstance3D = $_3D_Scenes/_3D_Scene_2/Pen_001
 @onready var name_tag_node: MeshInstance3D = $_3D_Scenes/_3D_Scene_2/Name_Tag
 
-var camera_position_transition_number: int = -1 # for now
-
 var elevator_pitch_has_been_saved: bool = false
 
 var stage: int = 1
+
+var default_elevator_pitch_has_been_set: bool = false
+var default_elevator_pitch: String = "" # for now
 
 # For handling transitions:
 
@@ -111,6 +118,10 @@ func _ready() -> void:
 		_2d_ui_8_node.hide()
 	if this_is_valid(_2d_ui_9_node):
 		_2d_ui_9_node.hide()
+	if this_is_valid(_2d_ui_10_node):
+		_2d_ui_10_node.hide()
+	if this_is_valid(_2d_ui_11_node):
+		_2d_ui_11_node.hide()
 	
 	if this_is_valid(_3d_scene_1_node):
 		_3d_scene_1_node.show()
@@ -143,6 +154,34 @@ func _ready() -> void:
 	if this_is_valid(name_tag_node):
 		name_tag_node.position = Vector3(-3.298, 1.065, -8.754)
 		name_tag_node.rotation = Vector3(0.0, 0.0, -PI/2)
+	if this_is_valid(map_node):
+		map_node.show()
+		
+	if not default_elevator_pitch_has_been_set:
+		if this_is_valid(initial_elevator_pitch_input_field_node):
+			default_elevator_pitch = initial_elevator_pitch_input_field_node.text
+		default_elevator_pitch_has_been_set = true
+	# Now that the default elevator pitch has been saved, we can load the 
+	# saved elevator pitch into the input field. This way, if the user
+	# exits the program and then re-opens it, it will remember their elevator
+	# pitch and they don't have to type it all over again. (At least not until
+	# the Career Fair part :) )
+	if FileAccess.file_exists("user://elevator_pitch.save"):
+		var save_file = FileAccess.open("user://elevator_pitch.save", FileAccess.READ)
+
+		# Go through each line of the file:
+		while save_file.get_position() < save_file.get_length():
+					   # ^ The save file's position
+			  		   #   automatically moves forward
+			  		   #   when reading or writing from
+			  		   #   the file.
+			var data_from_current_line_of_save_file = convert_save_file_string_to_data(save_file)
+			if data_from_current_line_of_save_file == {}:
+				print_debug("Save data empty!")
+				continue
+			if "elevator_pitch" in data_from_current_line_of_save_file.keys():
+				if this_is_valid(initial_elevator_pitch_input_field_node):
+					initial_elevator_pitch_input_field_node.text = data_from_current_line_of_save_file["elevator_pitch"]
 		
 	var game_window = get_window()
 	if this_is_valid(game_window):
@@ -176,7 +215,9 @@ func _process(delta: float) -> void:
 # ################################################################# #
 # ################################################################# #
 
-	# Do different things based on what the stage is:
+	# The stage variable is changed in section 4.a. based on
+	# what buttons are pressed.
+	# Here, we do different things based on what the stage is:
 	match stage:
 		1:
 			pass
@@ -227,6 +268,8 @@ func _process(delta: float) -> void:
 		11:
 			if not transition_is_occurring(map_node, "position"):
 				hide_node_if_it_is_visible(map_node)
+			if not transition_is_occurring(camera_node, "rotation"):
+				show_node_if_it_is_hidden(_2d_ui_10_node)
 	
 	
 	
@@ -293,11 +336,12 @@ func _when_2d_ui_1_done_button_is_pressed() -> void:
 	if this_is_valid(_2d_ui_2_node):
 		_2d_ui_2_node.show()
 	stage = 2
-	# We COULD do stage += 1, but later we have a multi-route part
-	# (presenting grizzID or stating that you're an alumni)
-	# and each route is a different stage, so it could be the
-	# case that we jump two stages later, where the skipped
-	# stage is for the route that wasn't chosen.
+	# You'd think stage += 1 would work, but later we have a 
+	# multi-route part (presenting grizzID or stating that 
+	# you're an alumni) and each route is a different stage, 
+	# so it could be the case that we jump two stages later, 
+	# where the skipped stage is for the route that wasn't 
+	# chosen.
 	
 func _when_2d_ui_1_switch_to_windowed_button_is_pressed() -> void:
 	if this_is_valid(switched_to_windowed_cooldown_timer_node):
@@ -318,6 +362,10 @@ func _when_2d_ui_1_switch_to_windowed_button_is_pressed() -> void:
 						game_window.position = Vector2i(0, 0)
 						game_window.mode = Window.MODE_FULLSCREEN
 			switched_to_windowed_cooldown_timer_node.start()
+			
+func _when_reset_elevator_pitch_to_default_button_is_pressed() -> void:
+	if this_is_valid(initial_elevator_pitch_input_field_node):
+		initial_elevator_pitch_input_field_node.text = default_elevator_pitch
 			
 func _when_take_multiple_copies_button_is_pressed() -> void:
 	if this_is_valid(_2d_ui_2_node):
@@ -426,6 +474,113 @@ func _when_use_map_button_is_pressed() -> void:
 	start_transition(camera_node, "rotation", Vector3(0.0, -PI/2, 0.0), Vector3(0.0, 0.0, 0.0), 2.0, 4.5)
 	stage = 11
 
+func _when_done_button_is_pressed_after_retyping_elevator_pitch() -> void:
+	stage = 12
+	var retyped_elevator_pitch_text = input_field_for_retyping_elevator_pitch_node.text
+	if this_is_valid(_2d_ui_11_node):
+		_2d_ui_11_node.show()
+	if this_is_valid(_2d_ui_10_node):
+		_2d_ui_10_node.hide()
+	
+	if FileAccess.file_exists("user://elevator_pitch.save"):
+		var save_file = FileAccess.open("user://elevator_pitch.save", FileAccess.READ)
+
+		# Go through each line of the file:
+		while save_file.get_position() < save_file.get_length():
+					   # ^ The save file's position
+			  		   # automatically moves forward
+			  		   # when reading or writing from
+			  		   # the file.
+			var data_from_current_line_of_save_file = convert_save_file_string_to_data(save_file)
+			if data_from_current_line_of_save_file == {}:
+				print_debug("Save data empty!")
+				continue
+			if "elevator_pitch" in data_from_current_line_of_save_file.keys():
+				if this_is_valid(original_elevator_pitch_node):
+					original_elevator_pitch_node.text = data_from_current_line_of_save_file["elevator_pitch"]
+	if this_is_valid(retyped_elevator_pitch_node):
+		retyped_elevator_pitch_node.text = retyped_elevator_pitch_text
+	# Now, calculate the percent accuracy
+	var number_of_total_characters = max(retyped_elevator_pitch_node.text.length(), original_elevator_pitch_node.text.length())
+	var number_of_matching_characters: float = 0.0 # for now
+												   # We declare this as a float
+												   # and not an int because
+												   # in order to calculate the
+												   # percent accuracy, we need to
+												   # divide number_of_matching_characters
+												   # by number_of_total_characters. 
+												   # However, when Godot divides two
+												   # integers, the result is also an
+												   # integer, so 1 / 2 = 0, not 0.5.
+												   # This is a problem because it will
+												   # give us an inaccurate percentage.
+												   # So we declare it as a float, so that
+												   # the result is also a float, making
+												   # the percentage more accurate.
+												   # (1.0 / 2.0 = 0.5)
+	var current_character_number_of_original: int = 1
+	var current_character_number_of_retyped: int = 1
+	while 1 == 1:
+		var current_character_of_retyped = retyped_elevator_pitch_node.text[current_character_number_of_retyped]
+		var current_character_of_original = original_elevator_pitch_node.text[current_character_number_of_original]
+		print("Current char of retyped: " + str(current_character_of_retyped))
+		print("Current char of original: " + str(current_character_of_original))
+		if current_character_of_retyped == current_character_of_original:
+			number_of_matching_characters += 1.0
+			print("MATCH!")
+		if current_character_number_of_original < last_character_number_of(original_elevator_pitch_node.text):
+			current_character_number_of_original += 1
+		else:
+			break
+		if current_character_number_of_retyped < last_character_number_of(retyped_elevator_pitch_node.text):
+			current_character_number_of_retyped += 1
+		else:
+			break
+	# TODO: analyze the below problem.
+	# Problem: if you make a typo and add an extra character, or if you
+	# forget a comma, then the entire thing will be shifted one character
+	# and none of the shifted characters will be considered matching
+	# .
+	# Solution: instead of matching character-by-charcter, it instead matches
+	# word-by-word. However, what if an extra word is added or subtracted,
+	# shifting the words? Maybe every time it checks a word and it doens't
+	# match it checks over like 1 or 2 words to see if it has been shifted.
+	# .
+	# Another solution: it calculates accuracy by seeing how many words in
+	# the retyped pitch are present in the original pitch. It doesn't check
+	# the ordering of thew words at all. For each word in the retyped pitch,
+	# it tries to find it in the original pitch, and if it's found, it adds
+	# to number of matching words and removes the matching word from the
+	# orignal_pitch_words array.
+	# The drawback to this is that the user can write all the words in a completely
+	# different order and get 100% accuracy. However, considering that the English
+	# language is structured in a very specific way, the user would have to purposefully
+	# do such a thing.
+	print("###########################################")
+	print("Number of matching characters: " + str(number_of_matching_characters))
+	print("Number of total characters: " + str(number_of_total_characters))
+	var percent_accuracy: float = (number_of_matching_characters / number_of_total_characters) * 100.0 if number_of_total_characters != 0.0 else 0.0
+	if this_is_valid(percent_accuracy_label_node):
+		percent_accuracy_label_node.text = str(snapped(percent_accuracy, 0.01)) + "% accuracy!"
+		#										^ This rounds the percentage so that
+		#										  there are only two digits after the
+		#										  decimal point.
+
+func _when_restart_walkthrough_button_is_pressed() -> void:
+	# Re-initialize everything:
+	elevator_pitch_has_been_saved = false
+	stage = 1
+	if this_is_valid(input_field_for_retyping_elevator_pitch_node):
+		input_field_for_retyping_elevator_pitch_node.text = " "
+	_ready()
+	
+	# Note: we do NOT want to re-initialize default_elevator_pitch_has_been_set
+	# or default_elevator_pitch. We want the default elevator pitch to stay
+	# just the way it is.
+
+func _when_exit_button_is_pressed() -> void:
+	get_tree().quit()
+
 
 
 
@@ -438,6 +593,21 @@ func _when_use_map_button_is_pressed() -> void:
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
+
+## Everything that gets saved to a save file is converted to a string. For example,
+## if the player's x position is [code]145[/code], then it will be saved to the
+## file as [code]"145"[/code]. This function de-converts the data and converts it from
+## a string to a value, so [code]"145"[/code] becomes [code]145[/code] again. If it's
+## unable to convert the string to data, it will give you [code]null[/code].
+func convert_save_file_string_to_data(save_file_input):
+	var current_line_of_save_file = save_file_input.get_line()
+	var thing_that_works_with_json_files = JSON.new()
+	var result_of_attempting_to_convert_string_to_data = thing_that_works_with_json_files.parse(current_line_of_save_file)
+	if not result_of_attempting_to_convert_string_to_data == OK:
+		print_debug(thing_that_works_with_json_files.get_error_message() + ": could not convert " + current_line_of_save_file + " (line " + thing_that_works_with_json_files.get_error_line() + ") to data! ")
+		return {}
+	else:
+		return thing_that_works_with_json_files.data
 
 func hide_node_if_it_is_visible(node_input: Node):
 	if this_is_valid(node_input):
@@ -493,6 +663,7 @@ func write_stuff_to_file(stuff_input, file_input) -> void:
 
 
 
+
 # ################################################################# #
 # ################################################################# #
 # ################################################################# #
@@ -511,7 +682,13 @@ func last_index_of(array_input: Array) -> int:
 	# We do this because if an array's
 	# size is 3 for example, then its 
 	# indices are 0 1 2, and 2 is 3 - 1. 
-
+	
+func last_character_number_of(string_input: String) -> int:
+	return string_input.length() - 1
+	# We do this because if a string's
+	# length is 3 for example, then its 
+	# character numbers are 0 1 2, and 2 
+	# is 3 - 1. 
 
 # this_is_valid() description:
 ## If you tell the game something like [code]my_node = $"(insert node 
