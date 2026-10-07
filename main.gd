@@ -270,6 +270,8 @@ func _process(delta: float) -> void:
 				hide_node_if_it_is_visible(map_node)
 			if not transition_is_occurring(camera_node, "rotation"):
 				show_node_if_it_is_hidden(_2d_ui_10_node)
+			if this_is_valid(input_field_for_retyping_elevator_pitch_node):
+				print(input_field_for_retyping_elevator_pitch_node.text)
 	
 	
 	
@@ -476,7 +478,10 @@ func _when_use_map_button_is_pressed() -> void:
 
 func _when_done_button_is_pressed_after_retyping_elevator_pitch() -> void:
 	stage = 12
-	var retyped_elevator_pitch_text = input_field_for_retyping_elevator_pitch_node.text
+	print("When done button pressed: text of input_field_for_retyping_elevator_pitch: " + str(input_field_for_retyping_elevator_pitch_node.text))
+	var retyped_elevator_pitch_text = " "
+	if this_is_valid(input_field_for_retyping_elevator_pitch_node): 
+		retyped_elevator_pitch_text = input_field_for_retyping_elevator_pitch_node.text
 	if this_is_valid(_2d_ui_11_node):
 		_2d_ui_11_node.show()
 	if this_is_valid(_2d_ui_10_node):
@@ -499,67 +504,45 @@ func _when_done_button_is_pressed_after_retyping_elevator_pitch() -> void:
 				if this_is_valid(original_elevator_pitch_node):
 					original_elevator_pitch_node.text = data_from_current_line_of_save_file["elevator_pitch"]
 	if this_is_valid(retyped_elevator_pitch_node):
+		print("Setting retyped_elevator_pitch_node.text to retyped_elevator_pitch_text, which is " + retyped_elevator_pitch_text)
 		retyped_elevator_pitch_node.text = retyped_elevator_pitch_text
 	# Now, calculate the percent accuracy
-	var number_of_total_characters = max(retyped_elevator_pitch_node.text.length(), original_elevator_pitch_node.text.length())
-	var number_of_matching_characters: float = 0.0 # for now
-												   # We declare this as a float
-												   # and not an int because
-												   # in order to calculate the
-												   # percent accuracy, we need to
-												   # divide number_of_matching_characters
-												   # by number_of_total_characters. 
-												   # However, when Godot divides two
-												   # integers, the result is also an
-												   # integer, so 1 / 2 = 0, not 0.5.
-												   # This is a problem because it will
-												   # give us an inaccurate percentage.
-												   # So we declare it as a float, so that
-												   # the result is also a float, making
-												   # the percentage more accurate.
-												   # (1.0 / 2.0 = 0.5)
-	var current_character_number_of_original: int = 1
-	var current_character_number_of_retyped: int = 1
-	while 1 == 1:
-		var current_character_of_retyped = retyped_elevator_pitch_node.text[current_character_number_of_retyped]
-		var current_character_of_original = original_elevator_pitch_node.text[current_character_number_of_original]
-		print("Current char of retyped: " + str(current_character_of_retyped))
-		print("Current char of original: " + str(current_character_of_original))
-		if current_character_of_retyped == current_character_of_original:
-			number_of_matching_characters += 1.0
-			print("MATCH!")
-		if current_character_number_of_original < last_character_number_of(original_elevator_pitch_node.text):
-			current_character_number_of_original += 1
-		else:
-			break
-		if current_character_number_of_retyped < last_character_number_of(retyped_elevator_pitch_node.text):
-			current_character_number_of_retyped += 1
-		else:
-			break
-	# TODO: analyze the below problem.
-	# Problem: if you make a typo and add an extra character, or if you
-	# forget a comma, then the entire thing will be shifted one character
-	# and none of the shifted characters will be considered matching
-	# .
-	# Solution: instead of matching character-by-charcter, it instead matches
-	# word-by-word. However, what if an extra word is added or subtracted,
-	# shifting the words? Maybe every time it checks a word and it doens't
-	# match it checks over like 1 or 2 words to see if it has been shifted.
-	# .
-	# Another solution: it calculates accuracy by seeing how many words in
-	# the retyped pitch are present in the original pitch. It doesn't check
-	# the ordering of thew words at all. For each word in the retyped pitch,
-	# it tries to find it in the original pitch, and if it's found, it adds
-	# to number of matching words and removes the matching word from the
-	# orignal_pitch_words array.
-	# The drawback to this is that the user can write all the words in a completely
-	# different order and get 100% accuracy. However, considering that the English
-	# language is structured in a very specific way, the user would have to purposefully
-	# do such a thing.
-	print("###########################################")
-	print("Number of matching characters: " + str(number_of_matching_characters))
-	print("Number of total characters: " + str(number_of_total_characters))
-	var percent_accuracy: float = (number_of_matching_characters / number_of_total_characters) * 100.0 if number_of_total_characters != 0.0 else 0.0
+	var words_of_original_elevator_pitch: PackedStringArray = [] # for now
+	var words_of_retyped_elevator_pitch: PackedStringArray = [] # for now
+	if this_is_valid(retyped_elevator_pitch_node):
+		words_of_retyped_elevator_pitch = retyped_elevator_pitch_node.text.split(" ")
+		for word in words_of_retyped_elevator_pitch:
+			print("word of retyped elevator pitch: " + word)
+	if this_is_valid(original_elevator_pitch_node):
+		words_of_original_elevator_pitch = original_elevator_pitch_node.text.split(" ")
+	var number_of_total_words: float = max(words_of_original_elevator_pitch.size(), words_of_retyped_elevator_pitch.size())
+	var number_of_matching_words: float = 0.0
+	
+	var current_word_number_of_original: int = 0
+	var current_word_number_of_retyped: int = 0
+	# Find out how many words in the original pitch match the retyped pitch.
+	# Go through each word in the retyped pitch, and try to find it in the 
+	# original pitch. If it's found, add it to the number of matching words, 
+	# and remove the matching word from words_of_original_elevator_pitch
+	# (since it has already been matched).
+	while current_word_number_of_retyped <= last_index_of(words_of_retyped_elevator_pitch):
+		while current_word_number_of_original <= last_index_of(words_of_original_elevator_pitch):
+			var current_word_of_retyped = words_of_retyped_elevator_pitch[current_word_number_of_retyped]
+			var current_word_of_original = words_of_original_elevator_pitch[current_word_number_of_original]
+			print("Current word of originial: " + current_word_of_original)
+			print("Current word of retyped: " + current_word_of_retyped)
+			if current_word_of_retyped == current_word_of_original:
+				print("MATCH!")
+				number_of_matching_words += 1.0
+				words_of_original_elevator_pitch.remove_at(current_word_number_of_original)
+				break
+			else:
+				current_word_number_of_original += 1
+		# Prepare for next word:
+		current_word_number_of_retyped += 1
+		current_word_number_of_original = 0 # so we can go through the whole original_words array again
+	print("Dividing " + str(number_of_matching_words) + " by " + str(number_of_total_words))
+	var percent_accuracy: float = (number_of_matching_words / number_of_total_words) * 100.0 if number_of_total_words != 0.0 else 0.0
 	if this_is_valid(percent_accuracy_label_node):
 		percent_accuracy_label_node.text = str(snapped(percent_accuracy, 0.01)) + "% accuracy!"
 		#										^ This rounds the percentage so that
@@ -571,7 +554,7 @@ func _when_restart_walkthrough_button_is_pressed() -> void:
 	elevator_pitch_has_been_saved = false
 	stage = 1
 	if this_is_valid(input_field_for_retyping_elevator_pitch_node):
-		input_field_for_retyping_elevator_pitch_node.text = " "
+		input_field_for_retyping_elevator_pitch_node.text = ""
 	_ready()
 	
 	# Note: we do NOT want to re-initialize default_elevator_pitch_has_been_set
