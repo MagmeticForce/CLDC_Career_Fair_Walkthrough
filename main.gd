@@ -1,6 +1,9 @@
 extends Node3D
 class_name Main
 
+# TODO: when calculating percent accuracy, convert all the words to caps
+# so that the comparison is case insensitive.
+
 # ######################## # 
 # CONTENTS
 # 1. Creating Parameters			
@@ -270,8 +273,6 @@ func _process(delta: float) -> void:
 				hide_node_if_it_is_visible(map_node)
 			if not transition_is_occurring(camera_node, "rotation"):
 				show_node_if_it_is_hidden(_2d_ui_10_node)
-			if this_is_valid(input_field_for_retyping_elevator_pitch_node):
-				print(input_field_for_retyping_elevator_pitch_node.text)
 	
 	
 	
@@ -478,7 +479,6 @@ func _when_use_map_button_is_pressed() -> void:
 
 func _when_done_button_is_pressed_after_retyping_elevator_pitch() -> void:
 	stage = 12
-	print("When done button pressed: text of input_field_for_retyping_elevator_pitch: " + str(input_field_for_retyping_elevator_pitch_node.text))
 	var retyped_elevator_pitch_text = " "
 	if this_is_valid(input_field_for_retyping_elevator_pitch_node): 
 		retyped_elevator_pitch_text = input_field_for_retyping_elevator_pitch_node.text
@@ -504,15 +504,12 @@ func _when_done_button_is_pressed_after_retyping_elevator_pitch() -> void:
 				if this_is_valid(original_elevator_pitch_node):
 					original_elevator_pitch_node.text = data_from_current_line_of_save_file["elevator_pitch"]
 	if this_is_valid(retyped_elevator_pitch_node):
-		print("Setting retyped_elevator_pitch_node.text to retyped_elevator_pitch_text, which is " + retyped_elevator_pitch_text)
 		retyped_elevator_pitch_node.text = retyped_elevator_pitch_text
 	# Now, calculate the percent accuracy
 	var words_of_original_elevator_pitch: PackedStringArray = [] # for now
 	var words_of_retyped_elevator_pitch: PackedStringArray = [] # for now
 	if this_is_valid(retyped_elevator_pitch_node):
 		words_of_retyped_elevator_pitch = retyped_elevator_pitch_node.text.split(" ")
-		for word in words_of_retyped_elevator_pitch:
-			print("word of retyped elevator pitch: " + word)
 	if this_is_valid(original_elevator_pitch_node):
 		words_of_original_elevator_pitch = original_elevator_pitch_node.text.split(" ")
 	var number_of_total_words: float = max(words_of_original_elevator_pitch.size(), words_of_retyped_elevator_pitch.size())
@@ -529,10 +526,7 @@ func _when_done_button_is_pressed_after_retyping_elevator_pitch() -> void:
 		while current_word_number_of_original <= last_index_of(words_of_original_elevator_pitch):
 			var current_word_of_retyped = words_of_retyped_elevator_pitch[current_word_number_of_retyped]
 			var current_word_of_original = words_of_original_elevator_pitch[current_word_number_of_original]
-			print("Current word of originial: " + current_word_of_original)
-			print("Current word of retyped: " + current_word_of_retyped)
 			if current_word_of_retyped == current_word_of_original:
-				print("MATCH!")
 				number_of_matching_words += 1.0
 				words_of_original_elevator_pitch.remove_at(current_word_number_of_original)
 				break
@@ -541,10 +535,9 @@ func _when_done_button_is_pressed_after_retyping_elevator_pitch() -> void:
 		# Prepare for next word:
 		current_word_number_of_retyped += 1
 		current_word_number_of_original = 0 # so we can go through the whole original_words array again
-	print("Dividing " + str(number_of_matching_words) + " by " + str(number_of_total_words))
 	var percent_accuracy: float = (number_of_matching_words / number_of_total_words) * 100.0 if number_of_total_words != 0.0 else 0.0
 	if this_is_valid(percent_accuracy_label_node):
-		percent_accuracy_label_node.text = str(snapped(percent_accuracy, 0.01)) + "% accuracy!"
+		percent_accuracy_label_node.text = str(snapped(percent_accuracy, 0.01)) + "% match with your original pitch!"
 		#										^ This rounds the percentage so that
 		#										  there are only two digits after the
 		#										  decimal point.
