@@ -1,13 +1,10 @@
 extends Node3D
 class_name Main
 
-# TODO: when calculating percent accuracy, convert all the words to caps
-# so that the comparison is case insensitive.
-
 # ######################## # 
 # CONTENTS
 # 1. Creating Parameters			
-# 2. Right When Things Loads
+# 2. Right When Things Load
 # 3. Every Frame of the Game
 #	a. Handling the Current Stage
 #	   of the Walkthrough
@@ -508,10 +505,16 @@ func _when_done_button_is_pressed_after_retyping_elevator_pitch() -> void:
 	# Now, calculate the percent accuracy
 	var words_of_original_elevator_pitch: PackedStringArray = [] # for now
 	var words_of_retyped_elevator_pitch: PackedStringArray = [] # for now
+	# Convert to uppercase so that the comparison is case insensitive, meaning that if
+	# the user typed something like "Hello" in the original and then typed "hello" in
+	# the retyped, then it will still count as a matching word. They'll both be
+	# "HELLO" after uppercase conversion.
+	var uppercase_retyped_elevator_pitch_text = retyped_elevator_pitch_node.text.to_upper()
+	var uppercase_original_elevator_pitch_text = original_elevator_pitch_node.text.to_upper()
 	if this_is_valid(retyped_elevator_pitch_node):
-		words_of_retyped_elevator_pitch = retyped_elevator_pitch_node.text.split(" ")
+		words_of_retyped_elevator_pitch = uppercase_retyped_elevator_pitch_text.split(" ")
 	if this_is_valid(original_elevator_pitch_node):
-		words_of_original_elevator_pitch = original_elevator_pitch_node.text.split(" ")
+		words_of_original_elevator_pitch = uppercase_original_elevator_pitch_text.split(" ")
 	var number_of_total_words: float = max(words_of_original_elevator_pitch.size(), words_of_retyped_elevator_pitch.size())
 	var number_of_matching_words: float = 0.0
 	
