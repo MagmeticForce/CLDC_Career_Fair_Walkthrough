@@ -11,6 +11,7 @@ class_name Main
 #	b. Handling Transitions
 # 4. Events
 #	a. Button Presses
+#	b. Timers
 # Second-To-Last. Function Definitions 
 # Final. Renaming Blocks of Code That
 #        Don't Read Well Using
@@ -68,6 +69,20 @@ class_name Main
 @onready var camera_node: Camera3D = $_3D_Scenes/For_All_Scenes/Camera
 @onready var pen_001_node: MeshInstance3D = $_3D_Scenes/_3D_Scene_2/Pen_001
 @onready var name_tag_node: MeshInstance3D = $_3D_Scenes/_3D_Scene_2/Name_Tag
+@onready var video_mode_progressbar_node: ProgressBar = $_2D_UI_Elements/Video_Mode_ProgressBar
+@onready var video_mode_timer: Timer = $Video_Mode_Timer
+
+# Make a checkbox called Video Mode appear in the Inspector panel
+# (which is usually on the right) when the Main node is selected
+# in the Scene panel (usually in the upper left).
+@export var video_mode: bool = false
+
+var video_mode_is_enabled: bool = false
+
+var video_mode_timer_duration_for_stage: Array[int] = [-1, 20, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
+# So bascially, we can say video_mode_timer_duration_for_stage[1] and we will be getting the
+# timer duration for stage 1. video_mode_timer_duration_for_stage[2] gets the timer duation for
+# stage 2, video_mode_timer_duration_for_stage[3] gets it for stage 3, etc.
 
 var elevator_pitch_has_been_saved: bool = false
 
@@ -100,6 +115,48 @@ var transition_amounts: Array = []
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
+	if video_mode == true:
+		# That means the "On" checkbox is checked for the Video Mode
+		# checkbox in the Inspector panel.
+		video_mode_is_enabled = true
+		# We COULD just use video_mode and get rid of
+		# video_mode_is_enabled, but I like having this
+		# video_mode_is_enabled variable for readability.
+		
+		# Go through each 2D_UI node and hide the buttons:
+		var current_number: int = 1
+		while current_number <= 11:
+			var current_2d_ui_node: Control = get("_2d_ui_" + str(current_number) + "_node")
+			if this_is_valid(current_2d_ui_node):
+				var children_of_2d_ui_node = current_2d_ui_node.get_children()
+				# Go through each child node in children_of_2d_ui_node:
+				for child_node in children_of_2d_ui_node:
+					if child_node is Button:
+						child_node.hide()
+			else:
+				print_debug("ERROR: main.gd: could not get 2D UI node!")
+			current_number += 1
+			
+		if this_is_valid(initial_elevator_pitch_input_field_node):
+			initial_elevator_pitch_input_field_node.text = "
+				Hello, my name is (name), and I am a (grade level) majoring
+				in (major) at Oakland University. I've developed skills through
+				an (internship/job position/student involvment) opportunity where 
+				I learned x, y, and z. \n \n
+				
+				Also, I have (been involved in or worked at some place, where I did
+				a, b, and c.) \n \n
+				
+				I am interested in a (career/position) as a (some position) in the (some industry)
+				because (of this reason and that reason).
+			"
+			if this_is_valid(video_mode_timer):
+				video_mode_timer.wait_time = video_mode_timer_duration_for_stage[1]
+				video_mode_timer.start()
+	else: # (video mode is DISABLED)
+		if this_is_valid(video_mode_progressbar_node):
+			video_mode_progressbar_node.hide()
+	
 	if this_is_valid(_2d_ui_1_node):
 		_2d_ui_1_node.show()
 	if this_is_valid(_2d_ui_2_node):
@@ -203,6 +260,9 @@ func _ready() -> void:
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
 	var time_since_previous_frame: float = delta
+	if this_is_valid(video_mode_progressbar_node) and this_is_valid(video_mode_timer):
+		var video_mode_timer_time_elapsed = video_mode_timer.wait_time - video_mode_timer.time_left
+		video_mode_progressbar_node.value = video_mode_timer_time_elapsed / video_mode_timer.wait_time
 	
 	
 	
@@ -559,6 +619,34 @@ func _when_restart_walkthrough_button_is_pressed() -> void:
 
 func _when_exit_button_is_pressed() -> void:
 	get_tree().quit()
+
+
+
+# ################################################################# #
+# ################################################################# #
+# ################################################################# #
+# 4.b. EVENTS: TIMERS 												#
+# ################################################################# #
+# ################################################################# #
+# ################################################################# #
+
+func _when_video_mode_timer_finishes() -> void:
+	# We will bascially be automatically pressing the buttons
+	# that would appear if video more was off
+	# NOTE-to-dev: don't forget to change the timer wait time
+	# 			   in each of the functions (check if video mode
+	#			   is enabled, and if so, change it). This way,
+	#			   each stage displays for the appropiate amount
+	#			   of time. Set the wait time to 
+	#			   video_mode_timer_duration_for_stage[(insert current stage number)]
+	
+	match stage:
+		1:
+			_when_2d_ui_1_done_button_is_pressed()
+		2:
+			_when_take_multiple_copies_button_is_pressed()
+		3:
+			pass
 
 
 
