@@ -9,6 +9,7 @@ class_name Main
 #	a. Handling the Current Stage
 #	   of the Walkthrough
 #	b. Handling Transitions
+#	Final. Preparing for Next Frame
 # 4. Events
 #	a. Button Presses
 #	b. Timers
@@ -59,6 +60,8 @@ class_name Main
 @onready var original_elevator_pitch_node: RichTextLabel = $_2D_UI_Elements/_2D_UI_11/Original_Elevator_Pitch
 @onready var retyped_elevator_pitch_node: RichTextLabel = $_2D_UI_Elements/_2D_UI_11/Retyped_Elevator_Pitch
 @onready var percent_accuracy_label_node: RichTextLabel = $_2D_UI_Elements/_2D_UI_11/Percent_Accuracy
+@onready var results_feedback_label_node: RichTextLabel = $_2D_UI_Elements/_2D_UI_11/Results_Feedback_Label
+@onready var _2d_ui_12_node: Control = $_2D_UI_Elements/_2D_UI_12
 @onready var _3d_scene_1_node: Node3D = $_3D_Scenes/_3D_Scene_1
 @onready var _3d_scene_2_node: Node3D = $_3D_Scenes/_3D_Scene_2
 @onready var _3d_scene_3_node: Node3D = $_3D_Scenes/_3D_Scene_3
@@ -76,13 +79,30 @@ class_name Main
 # (which is usually on the right) when the Main node is selected
 # in the Scene panel (usually in the upper left).
 @export var video_mode: bool = false
-
 var video_mode_is_enabled: bool = false
+#															1  2   3  4  5  6   7  8  9  10  11  12  13 14 15
+var video_mode_timer_duration_for_stage: Array[int] = [-1, 40, 16, 8, 8, 8, 15, 5, 5, 10, 8, 33, 26, 2, 8, 30]
+# ^ So bascially, we can say video_mode_timer_duration_for_stage[1] and we will be getting the
+#   timer duration for stage 1. video_mode_timer_duration_for_stage[2] gets the timer duation for
+#   stage 2, video_mode_timer_duration_for_stage[3] gets it for stage 3, etc.
+var previous_frame_video_mode_timer_elapsed_seconds: float = 0.0
+var video_mode_initial_pitch = "
+Hello, my name is (name), and I am a (grade level) majoring in (major) at Oakland University. I've developed skills through an (internship/job position/student involvment) opportunity where I learned x, y, and z.
 
-var video_mode_timer_duration_for_stage: Array[int] = [-1, 20, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
-# So bascially, we can say video_mode_timer_duration_for_stage[1] and we will be getting the
-# timer duration for stage 1. video_mode_timer_duration_for_stage[2] gets the timer duation for
-# stage 2, video_mode_timer_duration_for_stage[3] gets it for stage 3, etc.
+Also, I have (been involved in or worked at some place, where I did a, b, and c.
+
+I am interested in a (career/position) as a (some position) in the (some industry) because (of this reason and that reason).
+"
+var video_mode_auto_retyped_pitch: String = "
+Hello, my name is (name), and I am a (grade level) majoring in (major) at Oakland University. I've developed skills where I learned x.
+
+I am interested in a (career/position) as a (some position) in the (some industry).
+"
+# For auto-retyping elevator pitch (in the second input field that appears
+# at the Career Fair) if video mode is enabled:
+var character_number_of_current_character_to_type: float = 0
+var characters_present_in_input_field: String = ""
+var accumulated_time_elapsed: float = 0.0
 
 var elevator_pitch_has_been_saved: bool = false
 
@@ -96,9 +116,9 @@ var default_elevator_pitch: String = "" # for now
 var active_transitions: Array[Dictionary] = []
 
 var occurring_transitions: Array = []
-var transition_start_values: Array = []
-var transition_end_values: Array = []
-var transition_amounts: Array = []
+var transition_start_value: Array = []
+var transition_end_value: Array = []
+var transition_amount: Array = []
 
 
 
@@ -137,19 +157,6 @@ func _ready() -> void:
 				print_debug("ERROR: main.gd: could not get 2D UI node!")
 			current_number += 1
 			
-		if this_is_valid(initial_elevator_pitch_input_field_node):
-			initial_elevator_pitch_input_field_node.text = "
-				Hello, my name is (name), and I am a (grade level) majoring
-				in (major) at Oakland University. I've developed skills through
-				an (internship/job position/student involvment) opportunity where 
-				I learned x, y, and z. \n \n
-				
-				Also, I have (been involved in or worked at some place, where I did
-				a, b, and c.) \n \n
-				
-				I am interested in a (career/position) as a (some position) in the (some industry)
-				because (of this reason and that reason).
-			"
 			if this_is_valid(video_mode_timer):
 				video_mode_timer.wait_time = video_mode_timer_duration_for_stage[1]
 				video_mode_timer.start()
@@ -179,6 +186,8 @@ func _ready() -> void:
 		_2d_ui_10_node.hide()
 	if this_is_valid(_2d_ui_11_node):
 		_2d_ui_11_node.hide()
+	if this_is_valid(_2d_ui_12_node):
+		_2d_ui_12_node.hide()
 	
 	if this_is_valid(_3d_scene_1_node):
 		_3d_scene_1_node.show()
@@ -239,7 +248,11 @@ func _ready() -> void:
 			if "elevator_pitch" in data_from_current_line_of_save_file.keys():
 				if this_is_valid(initial_elevator_pitch_input_field_node):
 					initial_elevator_pitch_input_field_node.text = data_from_current_line_of_save_file["elevator_pitch"]
-		
+	# However, if video mode is enabled, then we will override this with with
+	# a pre-written pitch:
+	if this_is_valid(initial_elevator_pitch_input_field_node):
+		initial_elevator_pitch_input_field_node.text = video_mode_initial_pitch
+	
 	var game_window = get_window()
 	if this_is_valid(game_window):
 		game_window.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
@@ -260,9 +273,15 @@ func _ready() -> void:
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
 	var time_since_previous_frame: float = delta
+	
+	if Input.is_action_just_pressed("thing"):
+		video_mode_timer.stop()
+		_when_video_mode_timer_finishes()
+	
 	if this_is_valid(video_mode_progressbar_node) and this_is_valid(video_mode_timer):
 		var video_mode_timer_time_elapsed = video_mode_timer.wait_time - video_mode_timer.time_left
-		video_mode_progressbar_node.value = video_mode_timer_time_elapsed / video_mode_timer.wait_time
+		if video_mode_timer.wait_time != 0:
+			video_mode_progressbar_node.value = video_mode_timer_time_elapsed / video_mode_timer.wait_time
 	
 	
 	
@@ -283,14 +302,18 @@ func _process(delta: float) -> void:
 			pass
 		2:
 			if not elevator_pitch_has_been_saved:
-				var save_file = FileAccess.open("user://elevator_pitch.save", FileAccess.WRITE)
-				if this_is_valid(save_file):
-					if this_is_valid(initial_elevator_pitch_input_field_node):
-						var stuff_to_write_to_save_file = {
-							"elevator_pitch": initial_elevator_pitch_input_field_node.text
-						}
-						write_stuff_to_file(stuff_to_write_to_save_file, save_file)
+				if not video_mode_is_enabled:
+					var save_file = FileAccess.open("user://elevator_pitch.save", FileAccess.WRITE)
+					if this_is_valid(save_file):
+						if this_is_valid(initial_elevator_pitch_input_field_node):
+							var stuff_to_write_to_save_file = {
+								"elevator_pitch": initial_elevator_pitch_input_field_node.text
+							}
+							write_stuff_to_file(stuff_to_write_to_save_file, save_file)
 				elevator_pitch_has_been_saved = true
+				# ^ Even if it wasn't actually saved due to video mode being enabled,
+				#   there is no need to keep trying to save it if stage is 2 (since we
+				#	are in _process(), where things occur every frame of the game).
 		3:
 			pass
 		4:
@@ -330,6 +353,35 @@ func _process(delta: float) -> void:
 				hide_node_if_it_is_visible(map_node)
 			if not transition_is_occurring(camera_node, "rotation"):
 				show_node_if_it_is_hidden(_2d_ui_10_node)
+				if video_mode_is_enabled:
+					if this_is_valid(video_mode_timer):
+						var video_mode_timer_elapsed_seconds = video_mode_timer.wait_time - video_mode_timer.time_left
+						if video_mode_timer_elapsed_seconds >= 11.0:
+							# Then start automatically typing out the elevator pitch!
+							if character_number_of_current_character_to_type <= video_mode_auto_retyped_pitch.length() - 1: #<-- the last character number
+								var amount_of_time_to_wait_between_each_character = video_mode_timer.wait_time / (video_mode_auto_retyped_pitch.length() + 60)
+								var change_in_elapsed_time_in_video_mode_timer = video_mode_timer_elapsed_seconds - previous_frame_video_mode_timer_elapsed_seconds
+								if accumulated_time_elapsed >= amount_of_time_to_wait_between_each_character:
+									# If amount_of_time_to_wait_between_each_character is 0.1, for example,
+									# then we need to see how many 0.1's can fit into 
+									# change_in_elapsed_time_in_video_mode_timer, and that will tell us
+									# how many characters we need to put down on this frame of the game.
+									var number_of_characters_to_put_down: int = 0
+									while accumulated_time_elapsed >= amount_of_time_to_wait_between_each_character:
+										accumulated_time_elapsed -= amount_of_time_to_wait_between_each_character
+										number_of_characters_to_put_down += 1
+									# Type each character:
+									var number_of_characters_already_put_down: int = 0
+									while number_of_characters_already_put_down <= number_of_characters_to_put_down:
+										if character_number_of_current_character_to_type > video_mode_auto_retyped_pitch.length() - 1:#(i.e. the last character number)
+											break
+										characters_present_in_input_field += video_mode_auto_retyped_pitch[character_number_of_current_character_to_type]
+										character_number_of_current_character_to_type += 1
+										number_of_characters_already_put_down += 1
+									if this_is_valid(input_field_for_retyping_elevator_pitch_node):
+										input_field_for_retyping_elevator_pitch_node.text = characters_present_in_input_field
+								else: # accumulated_time_elapsed < amount_of_time_to_wait_between_each_character
+									accumulated_time_elapsed += change_in_elapsed_time_in_video_mode_timer
 	
 	
 	
@@ -363,6 +415,19 @@ func _process(delta: float) -> void:
 			
 	occurring_transitions = occurring_transitions_that_are_still_transitioning
 	# (This removes any values that are done transitioning.)
+	
+	
+	
+# ################################################################# #
+# ################################################################# #
+# ################################################################# #
+# 3.Final EVERY FRAME OF THE GAME: PREPARING FOR NEXT FRAME 		#
+# ################################################################# #
+# ################################################################# #
+# ################################################################# #
+	
+	if this_is_valid(video_mode_timer):
+		previous_frame_video_mode_timer_elapsed_seconds = video_mode_timer.wait_time - video_mode_timer.time_left
 	
 	
 	
@@ -403,6 +468,8 @@ func _when_2d_ui_1_done_button_is_pressed() -> void:
 	# where the skipped stage is for the route that wasn't 
 	# chosen.
 	
+	if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(2)
+	
 func _when_2d_ui_1_switch_to_windowed_button_is_pressed() -> void:
 	if this_is_valid(switched_to_windowed_cooldown_timer_node):
 		if switched_to_windowed_cooldown_timer_node.is_stopped():
@@ -433,6 +500,7 @@ func _when_take_multiple_copies_button_is_pressed() -> void:
 	if this_is_valid(_2d_ui_3_node):
 		_2d_ui_3_node.show()
 	stage = 3
+	if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(3)
 
 func _when_enter_the_oc_button_is_pressed() -> void:
 	if this_is_valid(_2d_ui_3_node):
@@ -440,9 +508,11 @@ func _when_enter_the_oc_button_is_pressed() -> void:
 	if this_is_valid(camera_node):
 		start_transition(camera_node, "position", Vector3(83.51, 2.75, 11.66), Vector3(52.51, 2.75, 5.669), 2.0)
 	stage = 4
+	if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(4)
 	
 func _when_walk_through_the_line_button_is_pressed() -> void:
 	stage = 5
+	if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(5)
 	
 	if this_is_valid(_2d_ui_4_node):
 		_2d_ui_4_node.hide()
@@ -462,6 +532,8 @@ func _when_walk_through_the_line_button_is_pressed() -> void:
 	
 func _when_present_grizz_id_button_is_pressed() -> void:
 	stage = 6
+	if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(6)
+	
 	if this_is_valid(_2d_ui_5_node):
 		_2d_ui_5_node.hide()
 	if this_is_valid(id_card_node):
@@ -477,6 +549,8 @@ func _when_present_grizz_id_button_is_pressed() -> void:
 
 func _when_state_alumni_button_is_pressed() -> void:
 	stage = 7
+	if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(7)
+	
 	if this_is_valid(_2d_ui_5_node):
 		_2d_ui_5_node.hide()
 	if this_is_valid(_2d_ui_6_node):
@@ -484,6 +558,8 @@ func _when_state_alumni_button_is_pressed() -> void:
 
 func _when_fill_out_the_paper_button_is_pressed() -> void:
 	stage = 8
+	if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(8)
+	
 	if this_is_valid(_2d_ui_6_node):
 		_2d_ui_6_node.hide()
 	if this_is_valid(pen_node):
@@ -515,6 +591,7 @@ func _when_go_to_name_tag_station_button_is_pressed() -> void:
 	start_transition(name_tag_node, "position", Vector3(-3.598, 0.865, -8.754), Vector3(-4.598, 0.865, -8.754), 2.0, 4.5)
 	start_transition(camera_node, "rotation", Vector3(deg_to_rad(-30.0), PI/2, 0.0), Vector3(0.0, PI/2, 0.0), 2.0, 5.0)
 	stage = 9
+	if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(9)
 
 func _when_go_to_career_fair_button_is_pressed() -> void:
 	if this_is_valid(_2d_ui_8_node):
@@ -522,6 +599,7 @@ func _when_go_to_career_fair_button_is_pressed() -> void:
 	start_transition(camera_node, "rotation", Vector3(0.0, PI/2, 0.0), Vector3(0.0, deg_to_rad(-30.0), 0.0), 2.0)
 	start_transition(camera_node, "position", Vector3(38.547, 2.75, 12.769), Vector3(51.547, 2.75, -9.748), 1.0, 0.5)
 	stage = 10
+	if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(10)
 	
 func _when_use_map_button_is_pressed() -> void:
 	if this_is_valid(_2d_ui_9_node):
@@ -533,9 +611,9 @@ func _when_use_map_button_is_pressed() -> void:
 	start_transition(camera_node, "position", Vector3(51.547, 2.75, -22.748), Vector3(53.247, 2.75, -22.748), 2.0, 4.0)
 	start_transition(camera_node, "rotation", Vector3(0.0, -PI/2, 0.0), Vector3(0.0, 0.0, 0.0), 2.0, 4.5)
 	stage = 11
+	if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(11)
 
 func _when_done_button_is_pressed_after_retyping_elevator_pitch() -> void:
-	stage = 12
 	var retyped_elevator_pitch_text = " "
 	if this_is_valid(input_field_for_retyping_elevator_pitch_node): 
 		retyped_elevator_pitch_text = input_field_for_retyping_elevator_pitch_node.text
@@ -544,22 +622,26 @@ func _when_done_button_is_pressed_after_retyping_elevator_pitch() -> void:
 	if this_is_valid(_2d_ui_10_node):
 		_2d_ui_10_node.hide()
 	
-	if FileAccess.file_exists("user://elevator_pitch.save"):
-		var save_file = FileAccess.open("user://elevator_pitch.save", FileAccess.READ)
+	if video_mode_is_enabled:
+		if this_is_valid(original_elevator_pitch_node):
+			original_elevator_pitch_node.text = video_mode_initial_pitch
+	else:
+		if FileAccess.file_exists("user://elevator_pitch.save"):
+			var save_file = FileAccess.open("user://elevator_pitch.save", FileAccess.READ)
 
-		# Go through each line of the file:
-		while save_file.get_position() < save_file.get_length():
-					   # ^ The save file's position
-			  		   # automatically moves forward
-			  		   # when reading or writing from
-			  		   # the file.
-			var data_from_current_line_of_save_file = convert_save_file_string_to_data(save_file)
-			if data_from_current_line_of_save_file == {}:
-				print_debug("Save data empty!")
-				continue
-			if "elevator_pitch" in data_from_current_line_of_save_file.keys():
-				if this_is_valid(original_elevator_pitch_node):
-					original_elevator_pitch_node.text = data_from_current_line_of_save_file["elevator_pitch"]
+			# Go through each line of the file:
+			while save_file.get_position() < save_file.get_length():
+						   # ^ The save file's position
+				  		   # automatically moves forward
+				  		   # when reading or writing from
+				  		   # the file.
+				var data_from_current_line_of_save_file = convert_save_file_string_to_data(save_file)
+				if data_from_current_line_of_save_file == {}:
+					print_debug("Save data empty!")
+					continue
+				if "elevator_pitch" in data_from_current_line_of_save_file.keys():
+					if this_is_valid(original_elevator_pitch_node):
+						original_elevator_pitch_node.text = data_from_current_line_of_save_file["elevator_pitch"]
 	if this_is_valid(retyped_elevator_pitch_node):
 		retyped_elevator_pitch_node.text = retyped_elevator_pitch_text
 	# Now, calculate the percent accuracy
@@ -604,6 +686,11 @@ func _when_done_button_is_pressed_after_retyping_elevator_pitch() -> void:
 		#										^ This rounds the percentage so that
 		#										  there are only two digits after the
 		#										  decimal point.
+	if video_mode_is_enabled:
+		if this_is_valid(results_feedback_label_node):
+			results_feedback_label_node.text = "Looks like you need to practice your elevator pitch more. Luckily, you can head to the Ready Rooms just outside the Career Fair and practice more."
+	stage = 12
+	if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(12)
 
 func _when_restart_walkthrough_button_is_pressed() -> void:
 	# Re-initialize everything:
@@ -634,11 +721,8 @@ func _when_video_mode_timer_finishes() -> void:
 	# We will bascially be automatically pressing the buttons
 	# that would appear if video more was off
 	# NOTE-to-dev: don't forget to change the timer wait time
-	# 			   in each of the functions (check if video mode
-	#			   is enabled, and if so, change it). This way,
-	#			   each stage displays for the appropiate amount
-	#			   of time. Set the wait time to 
-	#			   video_mode_timer_duration_for_stage[(insert current stage number)]
+	# 			   in each of the functions -- use
+	#			   if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(2)
 	
 	match stage:
 		1:
@@ -646,7 +730,62 @@ func _when_video_mode_timer_finishes() -> void:
 		2:
 			_when_take_multiple_copies_button_is_pressed()
 		3:
-			pass
+			_when_enter_the_oc_button_is_pressed()
+		4:
+			_when_walk_through_the_line_button_is_pressed()
+		5:
+			_when_present_grizz_id_button_is_pressed()
+		6:
+			_when_go_to_name_tag_station_button_is_pressed()
+		9:
+			_when_go_to_career_fair_button_is_pressed()
+		10:
+			_when_use_map_button_is_pressed()
+		11:
+			_when_done_button_is_pressed_after_retyping_elevator_pitch()
+		12:
+			stage = 13
+			if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(13)
+			if this_is_valid(_2d_ui_11_node):
+				_2d_ui_11_node.hide()
+			start_transition(camera_node, "rotation", Vector3(0.0, 0.0, 0.0), Vector3(0.0, PI/2, 0.0), 2.0)
+			start_transition(camera_node, "position", Vector3(53.247, 2.75, -22.748), Vector3(51.547, 2.75, -22.748), 2.0, 0.5)
+			start_transition(camera_node, "rotation", Vector3(0.0, PI/2, 0.0), Vector3(0.0, PI, 0.0), 2.0, 1.0)
+			start_transition(camera_node, "position", Vector3(51.547, 2.75, -22.748), Vector3(51.547, 2.75, -9.748), 1.0, 1.5)
+		13:
+			stage = 14
+			if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(14)
+			if this_is_valid(_2d_ui_12_node):
+				_2d_ui_12_node.show()
+		14:
+			stage = 11 # skips back to typing elevator pitch
+			if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(12)
+			if this_is_valid(_2d_ui_12_node):
+				_2d_ui_12_node.hide()
+			if this_is_valid(camera_node):
+				camera_node.position = Vector3(53.247, 2.75, -22.748)
+				camera_node.rotation = Vector3(0.0, 0.0, 0.0)
+			if this_is_valid(input_field_for_retyping_elevator_pitch_node):
+				input_field_for_retyping_elevator_pitch_node.text = ""
+				video_mode_auto_retyped_pitch = "
+				Hello, my name is (name), and I am a (grade level) majoring in (major) at Oakland University. I've developed skills through an (internship/job position/student involvment) opportunity where I learned x, y, and z.
+
+				Also, I have (been involved in or worked at some place, where I did a, b, and c.
+
+				I am interested in a (career/position) as a (some position) in the (some industry) because (of this reason and that reason).
+				"
+			if this_is_valid(results_feedback_label_node):
+				results_feedback_label_node.text = "Great job!!"
+				
+		# TODO: make feedbac text larger
+		# TODO: fix bug in retyping leevator pitch a second time
+		# TODO: game plan:
+		# Shows new text saying that you should go to the ready room.
+		# Camera turns and walks out of the fair.
+		# Then maybe shows some intermission screen that says something
+		# like "After practicing with a friendly career coach..."
+		# Then maybe skips back to being in front of an employer, and
+		# you do a much better job at retyping elevator pitch
 
 
 
@@ -702,6 +841,16 @@ func start_transition(object_with_transitioning_value, value_to_transition, star
 		# Handle the transition: see section 3.b.
 	else:
 		print_debug("ERROR: start_transition(): " + str(object_with_transitioning_value) + " does not have attribute " + value_to_transition)
+
+func if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(stage_number_input: int):
+	if video_mode_is_enabled:
+		if this_is_valid(video_mode_timer):
+			if video_mode_timer.is_stopped():
+				if stage_number_input <= last_index_of(video_mode_timer_duration_for_stage):
+					video_mode_timer.wait_time = video_mode_timer_duration_for_stage[stage_number_input]
+					video_mode_timer.start()
+				else:
+					print_debug("ERROR! main.gd: if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(): stage number is out of bounds!")
 
 func stop_transition(object_with_transitioning_value, value_to_transition) -> void:
 	# Go through each transition in occurring_transitions:
