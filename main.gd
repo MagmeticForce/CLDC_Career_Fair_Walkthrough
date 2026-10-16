@@ -81,7 +81,7 @@ class_name Main
 @export var video_mode: bool = false
 var video_mode_is_enabled: bool = false
 #															1  2   3  4  5  6   7  8  9  10  11  12  13 14 15
-var video_mode_timer_duration_for_stage: Array[int] = [-1, 40, 16, 8, 8, 8, 15, 5, 5, 10, 8, 33, 26, 2, 8, 30]
+var video_mode_timer_duration_for_stage: Array[int] = [-1, 40, 16, 8, 8, 8, 15, 5, 5, 10, 8, 33, 30, 2, 4, 30]
 # ^ So bascially, we can say video_mode_timer_duration_for_stage[1] and we will be getting the
 #   timer duration for stage 1. video_mode_timer_duration_for_stage[2] gets the timer duation for
 #   stage 2, video_mode_timer_duration_for_stage[3] gets it for stage 3, etc.
@@ -89,7 +89,7 @@ var previous_frame_video_mode_timer_elapsed_seconds: float = 0.0
 var video_mode_initial_pitch = "
 Hello, my name is (name), and I am a (grade level) majoring in (major) at Oakland University. I've developed skills through an (internship/job position/student involvment) opportunity where I learned x, y, and z.
 
-Also, I have (been involved in or worked at some place, where I did a, b, and c.
+Also, I have (been involved in or worked at some place), where I did a, b, and c.
 
 I am interested in a (career/position) as a (some position) in the (some industry) because (of this reason and that reason).
 "
@@ -103,6 +103,10 @@ I am interested in a (career/position) as a (some position) in the (some industr
 var character_number_of_current_character_to_type: float = 0
 var characters_present_in_input_field: String = ""
 var accumulated_time_elapsed: float = 0.0
+var additional_value_that_makes_time_between_each_character_shorter: float = 60.0
+var start_time_for_typing_elevator_pitch: float = 11.0
+
+var current_feedback_text = "Looks like you need to practice your elevator pitch more. Luckily, you can head to the Ready Rooms just outside the Career Fair and practice more."
 
 var elevator_pitch_has_been_saved: bool = false
 
@@ -250,8 +254,9 @@ func _ready() -> void:
 					initial_elevator_pitch_input_field_node.text = data_from_current_line_of_save_file["elevator_pitch"]
 	# However, if video mode is enabled, then we will override this with with
 	# a pre-written pitch:
-	if this_is_valid(initial_elevator_pitch_input_field_node):
-		initial_elevator_pitch_input_field_node.text = video_mode_initial_pitch
+	if video_mode_is_enabled:
+		if this_is_valid(initial_elevator_pitch_input_field_node):
+			initial_elevator_pitch_input_field_node.text = video_mode_initial_pitch
 	
 	var game_window = get_window()
 	if this_is_valid(game_window):
@@ -356,10 +361,10 @@ func _process(delta: float) -> void:
 				if video_mode_is_enabled:
 					if this_is_valid(video_mode_timer):
 						var video_mode_timer_elapsed_seconds = video_mode_timer.wait_time - video_mode_timer.time_left
-						if video_mode_timer_elapsed_seconds >= 11.0:
+						if video_mode_timer_elapsed_seconds >= start_time_for_typing_elevator_pitch:
 							# Then start automatically typing out the elevator pitch!
 							if character_number_of_current_character_to_type <= video_mode_auto_retyped_pitch.length() - 1: #<-- the last character number
-								var amount_of_time_to_wait_between_each_character = video_mode_timer.wait_time / (video_mode_auto_retyped_pitch.length() + 60)
+								var amount_of_time_to_wait_between_each_character = video_mode_timer.wait_time / (video_mode_auto_retyped_pitch.length() + additional_value_that_makes_time_between_each_character_shorter)
 								var change_in_elapsed_time_in_video_mode_timer = video_mode_timer_elapsed_seconds - previous_frame_video_mode_timer_elapsed_seconds
 								if accumulated_time_elapsed >= amount_of_time_to_wait_between_each_character:
 									# If amount_of_time_to_wait_between_each_character is 0.1, for example,
@@ -671,7 +676,11 @@ func _when_done_button_is_pressed_after_retyping_elevator_pitch() -> void:
 		while current_word_number_of_original <= last_index_of(words_of_original_elevator_pitch):
 			var current_word_of_retyped = words_of_retyped_elevator_pitch[current_word_number_of_retyped]
 			var current_word_of_original = words_of_original_elevator_pitch[current_word_number_of_original]
+			current_word_of_original = current_word_of_original.remove_chars("\n")
+			current_word_of_retyped = current_word_of_retyped.remove_chars("\n")
+			print("Comparing retyped word '" + current_word_of_retyped + "' with original word '" + current_word_of_original + "'.")
 			if current_word_of_retyped == current_word_of_original:
+				print("Match!")
 				number_of_matching_words += 1.0
 				words_of_original_elevator_pitch.remove_at(current_word_number_of_original)
 				break
@@ -680,6 +689,7 @@ func _when_done_button_is_pressed_after_retyping_elevator_pitch() -> void:
 		# Prepare for next word:
 		current_word_number_of_retyped += 1
 		current_word_number_of_original = 0 # so we can go through the whole original_words array again
+	print("Percent accuracy = (" + str(number_of_matching_words) + " / " + str(number_of_total_words) + ") * 100")
 	var percent_accuracy: float = (number_of_matching_words / number_of_total_words) * 100.0 if number_of_total_words != 0.0 else 0.0
 	if this_is_valid(percent_accuracy_label_node):
 		percent_accuracy_label_node.text = str(snapped(percent_accuracy, 0.01)) + "% match with your original pitch!"
@@ -688,7 +698,7 @@ func _when_done_button_is_pressed_after_retyping_elevator_pitch() -> void:
 		#										  decimal point.
 	if video_mode_is_enabled:
 		if this_is_valid(results_feedback_label_node):
-			results_feedback_label_node.text = "Looks like you need to practice your elevator pitch more. Luckily, you can head to the Ready Rooms just outside the Career Fair and practice more."
+			results_feedback_label_node.text = current_feedback_text
 	stage = 12
 	if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(12)
 
@@ -724,68 +734,60 @@ func _when_video_mode_timer_finishes() -> void:
 	# 			   in each of the functions -- use
 	#			   if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(2)
 	
-	match stage:
-		1:
-			_when_2d_ui_1_done_button_is_pressed()
-		2:
-			_when_take_multiple_copies_button_is_pressed()
-		3:
-			_when_enter_the_oc_button_is_pressed()
-		4:
-			_when_walk_through_the_line_button_is_pressed()
-		5:
-			_when_present_grizz_id_button_is_pressed()
-		6:
-			_when_go_to_name_tag_station_button_is_pressed()
-		9:
-			_when_go_to_career_fair_button_is_pressed()
-		10:
-			_when_use_map_button_is_pressed()
-		11:
-			_when_done_button_is_pressed_after_retyping_elevator_pitch()
-		12:
-			stage = 13
-			if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(13)
-			if this_is_valid(_2d_ui_11_node):
-				_2d_ui_11_node.hide()
-			start_transition(camera_node, "rotation", Vector3(0.0, 0.0, 0.0), Vector3(0.0, PI/2, 0.0), 2.0)
-			start_transition(camera_node, "position", Vector3(53.247, 2.75, -22.748), Vector3(51.547, 2.75, -22.748), 2.0, 0.5)
-			start_transition(camera_node, "rotation", Vector3(0.0, PI/2, 0.0), Vector3(0.0, PI, 0.0), 2.0, 1.0)
-			start_transition(camera_node, "position", Vector3(51.547, 2.75, -22.748), Vector3(51.547, 2.75, -9.748), 1.0, 1.5)
-		13:
-			stage = 14
-			if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(14)
-			if this_is_valid(_2d_ui_12_node):
-				_2d_ui_12_node.show()
-		14:
-			stage = 11 # skips back to typing elevator pitch
-			if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(12)
-			if this_is_valid(_2d_ui_12_node):
-				_2d_ui_12_node.hide()
-			if this_is_valid(camera_node):
-				camera_node.position = Vector3(53.247, 2.75, -22.748)
-				camera_node.rotation = Vector3(0.0, 0.0, 0.0)
-			if this_is_valid(input_field_for_retyping_elevator_pitch_node):
-				input_field_for_retyping_elevator_pitch_node.text = ""
-				video_mode_auto_retyped_pitch = "
-				Hello, my name is (name), and I am a (grade level) majoring in (major) at Oakland University. I've developed skills through an (internship/job position/student involvment) opportunity where I learned x, y, and z.
-
-				Also, I have (been involved in or worked at some place, where I did a, b, and c.
-
-				I am interested in a (career/position) as a (some position) in the (some industry) because (of this reason and that reason).
-				"
-			if this_is_valid(results_feedback_label_node):
-				results_feedback_label_node.text = "Great job!!"
-				
-		# TODO: make feedbac text larger
-		# TODO: fix bug in retyping leevator pitch a second time
-		# TODO: game plan:
-		# Shows new text saying that you should go to the ready room.
-		# Camera turns and walks out of the fair.
-		# Then maybe shows some intermission screen that says something
-		# like "After practicing with a friendly career coach..."
-		# Then maybe skips back to being in front of an employer, and
-		# you do a much better job at retyping elevator pitch
+	if current_feedback_text == "Great job!!" and stage >= 12:
+		pass
+	else:
+		match stage:
+			1:
+				_when_2d_ui_1_done_button_is_pressed()
+			2:
+				_when_take_multiple_copies_button_is_pressed()
+			3:
+				_when_enter_the_oc_button_is_pressed()
+			4:
+				_when_walk_through_the_line_button_is_pressed()
+			5:
+				_when_present_grizz_id_button_is_pressed()
+			6:
+				_when_go_to_name_tag_station_button_is_pressed()
+			9:
+				_when_go_to_career_fair_button_is_pressed()
+			10:
+				_when_use_map_button_is_pressed()
+			11:
+				_when_done_button_is_pressed_after_retyping_elevator_pitch()
+			12:
+				stage = 13
+				if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(13)
+				if this_is_valid(_2d_ui_11_node):
+					_2d_ui_11_node.hide()
+				start_transition(camera_node, "rotation", Vector3(0.0, 0.0, 0.0), Vector3(0.0, PI/2, 0.0), 2.0)
+				start_transition(camera_node, "position", Vector3(53.247, 2.75, -22.748), Vector3(51.547, 2.75, -22.748), 2.0, 0.5)
+				start_transition(camera_node, "rotation", Vector3(0.0, PI/2, 0.0), Vector3(0.0, PI, 0.0), 2.0, 1.0)
+				start_transition(camera_node, "position", Vector3(51.547, 2.75, -22.748), Vector3(51.547, 2.75, -9.748), 1.0, 1.5)
+			13:
+				stage = 14
+				if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(14)
+				if this_is_valid(_2d_ui_12_node):
+					_2d_ui_12_node.show()
+			14:
+				stage = 11 # skips back to typing elevator pitch
+				if_video_mode_is_enabled_then_start_video_mode_timer_for_stage(11)
+				if this_is_valid(_2d_ui_12_node):
+					_2d_ui_12_node.hide()
+				if this_is_valid(camera_node):
+					camera_node.position = Vector3(53.247, 2.75, -22.748)
+					camera_node.rotation = Vector3(0.0, 0.0, 0.0)
+				if this_is_valid(input_field_for_retyping_elevator_pitch_node):
+					input_field_for_retyping_elevator_pitch_node.text = ""
+					video_mode_auto_retyped_pitch = video_mode_initial_pitch
+					character_number_of_current_character_to_type = 0
+					characters_present_in_input_field = ""
+					accumulated_time_elapsed = 0.0
+					additional_value_that_makes_time_between_each_character_shorter = 120
+					start_time_for_typing_elevator_pitch = 4.0
+				if this_is_valid(results_feedback_label_node):
+					current_feedback_text = "Great job!!"
 
 
 
